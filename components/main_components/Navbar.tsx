@@ -11,8 +11,9 @@ import {
   MobileNavToggle,
   MobileNavMenu,
 } from "@/components/ui/resizable-navbar";
-import { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { PlaceholdersAndVanishInput } from "../ui/placeholders-and-vanish-input";
+import UserMenu from "./UserMenu";
 
     const placeholders = [
       "Search tournaments 🔎",
@@ -48,6 +49,23 @@ export function NavbarMain() {
   ];
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [hasToken, setHasToken] = useState(false);
+
+  useEffect(() => {
+    try {
+      setHasToken(Boolean(localStorage.getItem("token")));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === "token") {
+        setHasToken(Boolean(e.newValue));
+      }
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   return (
     <div className="relative w-full">
@@ -64,8 +82,14 @@ export function NavbarMain() {
             />
           </div>
           <div className="flex items-center gap-4 shrink-0">
-            <NavbarButton variant="secondary">Login</NavbarButton>
-            <NavbarButton variant="dark">Signup</NavbarButton>
+            {hasToken ? (
+              <UserMenu />
+            ) : (
+              <>
+                <a href="/auth/login"><NavbarButton variant="secondary">Login</NavbarButton></a>
+                <a href="/auth/signup"><NavbarButton variant="dark">Signup</NavbarButton></a>
+              </>
+            )}
           </div>
         </NavBody>
 
@@ -94,20 +118,18 @@ export function NavbarMain() {
               </a>
             ))}
             <div className="flex w-full flex-col gap-4">
-              <NavbarButton
-                onClick={() => setIsMobileMenuOpen(false)}
-                variant="dark"
-                className="w-full"
-              >
-                Login
-              </NavbarButton>
-              <NavbarButton
-                onClick={() => setIsMobileMenuOpen(false)}
-                variant="dark"
-                className="w-full"
-              >
-                Signup
-              </NavbarButton>
+              {hasToken ? (
+                <UserMenu />
+              ) : (
+                <>
+                  <a href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavbarButton variant="dark" className="w-full">Login</NavbarButton>
+                  </a>
+                  <a href="/auth/signup" onClick={() => setIsMobileMenuOpen(false)}>
+                    <NavbarButton variant="dark" className="w-full">Signup</NavbarButton>
+                  </a>
+                </>
+              )}
             </div>
           </MobileNavMenu>
         </MobileNav>

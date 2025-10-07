@@ -39,7 +39,7 @@ export default function RootLayout({
       >
         <NavbarMain/>
         {children}
-        <LightRays/>
+        {/* <LightRays/> */}
       </body>
     </html>
   );

@@ -4,7 +4,7 @@ import { Docks } from "./docks";
 
 export default function Herosection() {
   return (
-    <div className="container mx-auto   lg:max-h-[800px] lg:h-screen flex flex-col lg:flex-row items-center justify-center lg:justify-between px-4 sm:px-8 lg:px-12 py-12 gap-10 lg:gap-16 text-white">
+    <div className="container mx-auto   lg:max-h-[800px] lg:h-screen  flex flex-col lg:flex-row items-center justify-center lg:justify-between px-4 sm:px-8 lg:px-12 py-12 gap-10 lg:gap-16 text-white">
       <div className="max-w-xl space-y-6 text-center lg:text-left">
         <div className="flex ">
           <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight font-heading">
