@@ -338,9 +338,15 @@ export default function MyTowerManagePage() {
                       <Users className="w-4 h-4" />
                       <span>{team.members?.length || 0}/5</span>
                     </div>
-                    <div className="flex items-center gap-1 text-green-400">
-                      <Trophy className="w-4 h-4" />
-                      <span>{team.stats?.wins || 0} Wins</span>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        team.status === 'free' ? 'bg-green-500/20 text-green-400' :
+                        team.status === 'registered' ? 'bg-yellow-500/20 text-yellow-400' :
+                        team.status === 'inTournament' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gray-500/20 text-gray-400'
+                      }`}>
+                        {team.status || 'Free'}
+                      </span>
                     </div>
                   </div>
                 </Link>
