@@ -39,6 +39,10 @@ export function NavbarMain() {
       link: "/tournaments",
     },
     {
+      name: "Towers",
+      link: "/towers",
+    },
+    {
       name: "Leaderboard",
       link: "/leaderboard",
     },
