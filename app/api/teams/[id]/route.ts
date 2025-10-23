@@ -1,44 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth';
-import { saveFile, validateImageFile } from '@/lib/upload';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const teams = await query<any[]>(
-      `SELECT t.*, u.name as captain_name, u.username as captain_username,
-       tw.name as tower_name, tw.owner_id as tower_owner_id
-       FROM teams t
-       JOIN users u ON t.captain_id = u.id
-       JOIN towers tw ON t.tower_id = tw.id
-       WHERE t.id = ?`,
-      [params.id]
-    );
+    const { id } = await params;
+    const team = await prisma.team.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        captain: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            avatarUrl: true,
+          }
+        },
+        tower: {
+          select: {
+            id: true,
+            name: true,
+            leaderId: true,
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+                avatarUrl: true,
+                gameId: true,
+              }
+            }
+          }
+        }
+      }
+    });
 
-    if (teams.length === 0) {
+    if (!team) {
       return NextResponse.json(
         { error: 'Team not found' },
         { status: 404 }
       );
-    }
-
-    const team = teams[0];
-    team.members = team.members ? JSON.parse(team.members) : [];
-
-    // Get member details
-    if (team.members.length > 0) {
-      const memberDetails = await query<any[]>(
-        `SELECT id, name, username, avatar, game_id 
-         FROM users 
-         WHERE id IN (${team.members.map(() => '?').join(',')})`,
-        team.members
-      );
-      team.memberDetails = memberDetails;
-    } else {
-      team.memberDetails = [];
     }
 
     return NextResponse.json(team);
@@ -54,37 +62,40 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = authenticateRequest(request);
-    if (!user) {
+    const { id } = await params;
+    const authUser = authenticateRequest(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    // Get team and tower info
-    const teams = await query<any[]>(
-      `SELECT t.*, tw.owner_id, tw.co_leaders 
-       FROM teams t
-       JOIN towers tw ON t.tower_id = tw.id
-       WHERE t.id = ?`,
-      [params.id]
-    );
+    // Get team and check permissions
+    const team = await prisma.team.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        tower: {
+          select: {
+            leaderId: true,
+            coLeaderId: true,
+          }
+        }
+      }
+    });
 
-    if (teams.length === 0) {
+    if (!team) {
       return NextResponse.json(
         { error: 'Team not found' },
         { status: 404 }
       );
     }
 
-    const team = teams[0];
-    const coLeaders = team.co_leaders ? JSON.parse(team.co_leaders) : [];
-    const isOwner = team.owner_id === user.userId;
-    const isCoLeader = coLeaders.includes(user.userId);
+    const isOwner = team.tower.leaderId === parseInt(authUser.userId);
+    const isCoLeader = team.tower.coLeaderId === parseInt(authUser.userId);
 
     if (!isOwner && !isCoLeader) {
       return NextResponse.json(
@@ -93,69 +104,53 @@ export async function PUT(
       );
     }
 
-    const formData = await request.formData();
-    const name = formData.get('name') as string;
-    const captainId = formData.get('captainId') as string;
-    const memberIds = formData.get('memberIds') as string;
-    const logoFile = formData.get('logo') as File | null;
+    const body = await request.json();
+    const { name, captainId } = body;
 
-    const updates: string[] = [];
-    const values: any[] = [];
+    const updateData: any = {};
 
     if (name) {
-      const existing = await query<any[]>(
-        'SELECT id FROM teams WHERE name = ? AND tower_id = ? AND id != ?',
-        [name, team.tower_id, params.id]
-      );
-      if (existing.length > 0) {
+      // Check uniqueness
+      const existing = await prisma.team.findFirst({
+        where: {
+          name,
+          towerId: team.towerId,
+          id: { not: parseInt(id) }
+        }
+      });
+      
+      if (existing) {
         return NextResponse.json(
           { error: 'Team name already exists in this tower' },
           { status: 409 }
         );
       }
-      updates.push('name = ?');
-      values.push(name);
+      updateData.name = name;
     }
 
-    if (captainId) {
-      updates.push('captain_id = ?');
-      values.push(captainId);
+    if (captainId !== undefined) {
+      updateData.captainId = parseInt(captainId);
     }
 
-    if (memberIds) {
-      const members = JSON.parse(memberIds);
-      updates.push('members = ?');
-      values.push(JSON.stringify(members));
-    }
-
-    if (logoFile && logoFile.size > 0) {
-      const validation = validateImageFile(logoFile);
-      if (!validation.valid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        );
+    const updatedTeam = await prisma.team.update({
+      where: { id: parseInt(id) },
+      data: updateData,
+      include: {
+        captain: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          }
+        },
+        tower: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
       }
-      const logoPath = await saveFile(logoFile, 'teams');
-      updates.push('logo = ?');
-      values.push(logoPath);
-    }
-
-    if (updates.length > 0) {
-      values.push(params.id);
-      await query(
-        `UPDATE teams SET ${updates.join(', ')} WHERE id = ?`,
-        values
-      );
-    }
-
-    const updatedTeams = await query<any[]>(
-      'SELECT * FROM teams WHERE id = ?',
-      [params.id]
-    );
-
-    const updatedTeam = updatedTeams[0];
-    updatedTeam.members = updatedTeam.members ? JSON.parse(updatedTeam.members) : [];
+    });
 
     return NextResponse.json(updatedTeam);
 
@@ -170,45 +165,51 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = authenticateRequest(request);
-    if (!user) {
+    const { id } = await params;
+    const authUser = authenticateRequest(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       );
     }
 
-    const teams = await query<any[]>(
-      `SELECT t.*, tw.owner_id, tw.co_leaders 
-       FROM teams t
-       JOIN towers tw ON t.tower_id = tw.id
-       WHERE t.id = ?`,
-      [params.id]
-    );
+    // Get team and check permissions
+    const team = await prisma.team.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        tower: {
+          select: {
+            leaderId: true,
+            coLeaderId: true,
+          }
+        }
+      }
+    });
 
-    if (teams.length === 0) {
+    if (!team) {
       return NextResponse.json(
         { error: 'Team not found' },
         { status: 404 }
       );
     }
 
-    const team = teams[0];
-    const coLeaders = team.co_leaders ? JSON.parse(team.co_leaders) : [];
-    const isOwner = team.owner_id === user.userId;
-    const isCoLeader = coLeaders.includes(user.userId);
+    const isOwner = team.tower.leaderId === parseInt(authUser.userId);
+    const isCoLeader = team.tower.coLeaderId === parseInt(authUser.userId);
 
     if (!isOwner && !isCoLeader) {
       return NextResponse.json(
-        { error: 'Forbidden' },
+        { error: 'Forbidden - Only tower owner/co-leader can delete teams' },
         { status: 403 }
       );
     }
 
-    await query('DELETE FROM teams WHERE id = ?', [params.id]);
+    await prisma.team.delete({
+      where: { id: parseInt(id) }
+    });
 
     return NextResponse.json({ success: true });
 
