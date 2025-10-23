@@ -4,7 +4,7 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = authenticateRequest(request);
@@ -15,6 +15,7 @@ export async function PATCH(
       );
     }
 
+    const { id } = await params;
     const body = await request.json();
     const { status } = body;
 
@@ -26,7 +27,7 @@ export async function PATCH(
     }
 
     const application = await prisma.organizerApplication.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: {
         status,
         reviewedBy: parseInt(user.userId),

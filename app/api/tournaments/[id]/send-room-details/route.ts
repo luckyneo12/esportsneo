@@ -4,9 +4,10 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = authenticateRequest(request);
     if (!user || (user.role !== 'organiser' && user.role !== 'admin')) {
       return NextResponse.json(
@@ -17,7 +18,7 @@ export async function POST(
 
     // Get tournament with room details
     const tournament = await prisma.tournament.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       include: {
         registrations: {
           where: {

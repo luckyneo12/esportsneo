@@ -4,9 +4,10 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = authenticateRequest(request);
     if (!user || (user.role !== 'organiser' && user.role !== 'admin')) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function PATCH(
     }
 
     const registration = await prisma.tournamentRegistration.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: {
         status,
         approvedByUserId: parseInt(user.userId),

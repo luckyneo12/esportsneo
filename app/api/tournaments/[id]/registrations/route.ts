@@ -4,9 +4,10 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = authenticateRequest(request);
     if (!user) {
       return NextResponse.json(
@@ -17,7 +18,7 @@ export async function GET(
 
     const registrations = await prisma.tournamentRegistration.findMany({
       where: {
-        tournamentId: parseInt(params.id)
+        tournamentId: parseInt(id)
       },
       include: {
         team: {

@@ -1,29 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const stats = await query<any[]>(
-      'SELECT * FROM user_stats WHERE user_id = ?',
-      [params.id]
-    );
+    const { id } = await params;
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(id) },
+      select: {
+        matchesPlayed: true,
+        matchesWon: true,
+        kills: true,
+        deaths: true,
+        wins: true,
+        mvpCount: true,
+        performancePoints: true,
+        level: true,
+        xp: true,
+      }
+    });
 
-    if (stats.length === 0) {
+    if (!user) {
       return NextResponse.json({
-        matches_played: 0,
-        wins: 0,
+        matchesPlayed: 0,
+        matchesWon: 0,
         kills: 0,
         deaths: 0,
-        assists: 0,
-        tournaments_participated: 0,
-        tournaments_won: 0,
+        wins: 0,
+        mvpCount: 0,
+        performancePoints: 0,
+        level: 1,
+        xp: 0,
       });
     }
 
-    return NextResponse.json(stats[0]);
+    return NextResponse.json(user);
 
   } catch (error) {
     console.error('Get user stats error:', error);

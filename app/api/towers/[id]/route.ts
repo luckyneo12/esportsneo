@@ -4,11 +4,12 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const tower = await prisma.tower.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       include: {
         leader: {
           select: {
@@ -78,9 +79,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authUser = authenticateRequest(request);
     if (!authUser) {
       return NextResponse.json(
@@ -91,7 +93,7 @@ export async function PUT(
 
     // Check ownership
     const tower = await prisma.tower.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       select: { leaderId: true, coLeaderId: true }
     });
 
@@ -122,7 +124,7 @@ export async function PUT(
       const existing = await prisma.tower.findFirst({
         where: {
           name,
-          id: { not: parseInt(params.id) }
+          id: { not: parseInt(id) }
         }
       });
       
@@ -140,7 +142,7 @@ export async function PUT(
     if (maxMembers !== undefined) updateData.maxMembers = maxMembers;
 
     const updatedTower = await prisma.tower.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: updateData,
       include: {
         leader: {
@@ -167,9 +169,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authUser = authenticateRequest(request);
     if (!authUser) {
       return NextResponse.json(
@@ -179,7 +182,7 @@ export async function DELETE(
     }
 
     const tower = await prisma.tower.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       select: { leaderId: true }
     });
 
@@ -198,7 +201,7 @@ export async function DELETE(
     }
 
     await prisma.tower.delete({
-      where: { id: parseInt(params.id) }
+      where: { id: parseInt(id) }
     });
 
     return NextResponse.json({ success: true });

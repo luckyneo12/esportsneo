@@ -4,11 +4,12 @@ import { authenticateRequest } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       select: {
         id: true,
         name: true,
@@ -72,9 +73,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const authUser = authenticateRequest(request);
     if (!authUser) {
       return NextResponse.json(
@@ -83,7 +85,7 @@ export async function PUT(
       );
     }
 
-    if (authUser.userId !== params.id) {
+    if (authUser.userId !== id) {
       return NextResponse.json(
         { error: 'Forbidden' },
         { status: 403 }
@@ -108,7 +110,7 @@ export async function PUT(
       const existing = await prisma.user.findFirst({
         where: {
           username,
-          id: { not: parseInt(params.id) }
+          id: { not: parseInt(id) }
         }
       });
       
@@ -129,7 +131,7 @@ export async function PUT(
     }
 
     const user = await prisma.user.update({
-      where: { id: parseInt(params.id) },
+      where: { id: parseInt(id) },
       data: updateData,
       select: {
         id: true,
