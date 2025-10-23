@@ -1,24 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const teams = await query<any[]>(
-      `SELECT tt.*, t.name as team_name, t.logo as team_logo,
-       tw.name as tower_name, u.name as captain_name
-       FROM tournament_teams tt
-       JOIN teams t ON tt.team_id = t.id
-       JOIN towers tw ON t.tower_id = tw.id
-       JOIN users u ON t.captain_id = u.id
-       WHERE tt.tournament_id = ?
-       ORDER BY tt.registered_at DESC`,
-      [params.id]
-    );
+    const { id } = await params;
+    const registrations = await prisma.tournamentRegistration.findMany({
+      where: {
+        tournamentId: parseInt(id)
+      },
+      include: {
+        team: {
+          include: {
+            tower: {
+              select: {
+                id: true,
+                name: true,
+              }
+            },
+            captain: {
+              select: {
+                id: true,
+                name: true,
+                username: true,
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
 
-    return NextResponse.json(teams);
+    return NextResponse.json(registrations);
 
   } catch (error) {
     console.error('Get tournament teams error:', error);

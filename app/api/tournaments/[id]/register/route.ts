@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { prisma } from '@/lib/prisma';
 import { authenticateRequest } from '@/lib/auth';
-import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = authenticateRequest(request);
-    if (!user) {
+    const { id } = await params;
+    const authUser = authenticateRequest(request);
+    if (!authUser) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -27,27 +27,31 @@ export async function POST(
     }
 
     // Get tournament
-    const tournaments = await query<any[]>(
-      'SELECT * FROM tournaments WHERE id = ?',
-      [params.id]
-    );
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        _count: {
+          select: {
+            registrations: {
+              where: {
+                status: { not: 'REJECTED' }
+              }
+            }
+          }
+        }
+      }
+    });
 
-    if (tournaments.length === 0) {
+    if (!tournament) {
       return NextResponse.json(
         { error: 'Tournament not found' },
         { status: 404 }
       );
     }
 
-    const tournament = tournaments[0];
-
     // Check if tournament is full
-    const registeredCount = await query<any[]>(
-      'SELECT COUNT(*) as count FROM tournament_teams WHERE tournament_id = ? AND status != "rejected"',
-      [params.id]
-    );
-
-    if (registeredCount[0].count + teamIds.length > tournament.max_teams) {
+    const currentRegistrations = tournament._count.registrations;
+    if (currentRegistrations + teamIds.length > tournament.maxTeams) {
       return NextResponse.json(
         { error: 'Tournament is full or not enough slots available' },
         { status: 400 }
@@ -58,46 +62,46 @@ export async function POST(
 
     for (const teamId of teamIds) {
       // Check if team exists and user has permission
-      const teams = await query<any[]>(
-        `SELECT t.*, tw.owner_id, tw.co_leaders 
-         FROM teams t
-         JOIN towers tw ON t.tower_id = tw.id
-         WHERE t.id = ?`,
-        [teamId]
-      );
+      const team = await prisma.team.findUnique({
+        where: { id: parseInt(teamId) },
+        include: {
+          tower: {
+            select: {
+              leaderId: true,
+              coLeaderId: true,
+            }
+          }
+        }
+      });
 
-      if (teams.length === 0) {
-        continue;
-      }
+      if (!team) continue;
 
-      const team = teams[0];
-      const coLeaders = team.co_leaders ? JSON.parse(team.co_leaders) : [];
-      const isOwner = team.owner_id === user.userId;
-      const isCoLeader = coLeaders.includes(user.userId);
+      const isOwner = team.tower.leaderId === parseInt(authUser.userId);
+      const isCoLeader = team.tower.coLeaderId === parseInt(authUser.userId);
 
-      if (!isOwner && !isCoLeader) {
-        continue;
-      }
+      if (!isOwner && !isCoLeader) continue;
 
       // Check if already registered
-      const existing = await query<any[]>(
-        'SELECT id FROM tournament_teams WHERE tournament_id = ? AND team_id = ?',
-        [params.id, teamId]
-      );
+      const existing = await prisma.tournamentRegistration.findFirst({
+        where: {
+          tournamentId: parseInt(id),
+          teamId: parseInt(teamId)
+        }
+      });
 
-      if (existing.length > 0) {
-        continue;
-      }
+      if (existing) continue;
 
       // Register team
-      const registrationId = uuidv4();
-      await query(
-        `INSERT INTO tournament_teams (id, tournament_id, team_id, registered_by, status) 
-         VALUES (?, ?, ?, ?, 'pending')`,
-        [registrationId, params.id, teamId, user.userId]
-      );
+      const registration = await prisma.tournamentRegistration.create({
+        data: {
+          tournamentId: parseInt(id),
+          teamId: parseInt(teamId),
+          createdByUserId: parseInt(authUser.userId),
+          status: 'PENDING',
+        }
+      });
 
-      registeredTeams.push({ id: registrationId, teamId });
+      registeredTeams.push({ id: registration.id, teamId });
     }
 
     return NextResponse.json({
