@@ -86,7 +86,7 @@ export default function LeaderboardPage() {
     try {
       if (activeTab === 'players') {
         const response = await fetch(
-          `http://localhost:3001/leaderboard/players?period=${timeFilter}&limit=50`
+          `/api/leaderboard/players?period=${timeFilter}&limit=50`
         );
         if (response.ok) {
           const data = await response.json();
@@ -100,7 +100,7 @@ export default function LeaderboardPage() {
         }
       } else if (activeTab === 'teams') {
         const response = await fetch(
-          `http://localhost:3001/leaderboard/teams?period=${timeFilter}&limit=30`
+          `/api/leaderboard/teams?period=${timeFilter}&limit=30`
         );
         if (response.ok) {
           const data = await response.json();
@@ -113,7 +113,7 @@ export default function LeaderboardPage() {
         }
       } else {
         const response = await fetch(
-          `http://localhost:3001/leaderboard/towers?period=${timeFilter}&limit=20`
+          `/api/leaderboard/towers?period=${timeFilter}&limit=20`
         );
         if (response.ok) {
           const data = await response.json();

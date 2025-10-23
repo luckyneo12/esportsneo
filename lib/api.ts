@@ -19,8 +19,8 @@ import {
   ReviewOrganizerForm,
 } from './types';
 
-// Backend API base URL - update this with your actual backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+// Backend API base URL - using Next.js API routes
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000';
 
 // Helper function for API calls
 async function apiCall<T>(
@@ -176,12 +176,12 @@ export const towerApi = {
   // Get all towers (or user's towers)
   getAll: (userId?: string) => {
     const query = userId ? `?userId=${userId}` : '';
-    return apiCall<Tower[]>(`/towers${query}`);
+    return apiCall<Tower[]>(`/api/towers${query}`);
   },
 
   // Get single tower (basic info)
   getById: (id: string) => {
-    return apiCall<Tower>(`/towers/${id}`);
+    return apiCall<Tower>(`/api/towers/${id}`);
   },
 
   // Get complete tower overview (with members, teams, stats)
@@ -226,7 +226,7 @@ export const towerApi = {
 
   // Create tower
   create: (data: CreateTowerForm) => {
-    return apiCall<Tower>('/towers', {
+    return apiCall<Tower>('/api/towers', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -248,7 +248,7 @@ export const towerApi = {
 
   // Update tower (legacy)
   update: (id: string, data: Partial<CreateTowerForm>) => {
-    return apiCall<Tower>(`/towers/${id}`, {
+    return apiCall<Tower>(`/api/towers/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -256,7 +256,7 @@ export const towerApi = {
 
   // Delete tower (Owner only)
   delete: (id: string) => {
-    return apiCall<void>(`/towers/${id}`, { method: 'DELETE' });
+    return apiCall<void>(`/api/towers/${id}`, { method: 'DELETE' });
   },
 
   // Promote member to elite
@@ -384,7 +384,7 @@ export const teamApi = {
 export const userApi = {
   // Get user profile
   getProfile: (id: string) => {
-    return apiCall<User>(`/users/${id}`);
+    return apiCall<User>(`/api/users/${id}`);
   },
 
   // Update user profile
@@ -396,22 +396,22 @@ export const userApi = {
     if (data.bio) formData.append('bio', data.bio);
     if (data.avatar) formData.append('avatar', data.avatar);
 
-    return uploadApiCall<User>(`/users/${id}`, formData, { method: 'PUT' });
+    return uploadApiCall<User>(`/api/users/${id}`, formData, { method: 'PUT' });
   },
 
   // Search users
   search: (query: string) => {
-    return apiCall<User[]>(`/users/search?q=${encodeURIComponent(query)}`);
+    return apiCall<User[]>(`/api/users/search?q=${encodeURIComponent(query)}`);
   },
 
   // Get user stats
   getStats: (userId: string) => {
-    return apiCall<UserStats>(`/users/${userId}/stats`);
+    return apiCall<UserStats>(`/api/users/${userId}/stats`);
   },
 
   // Get user achievements
   getAchievements: (userId: string) => {
-    return apiCall<Achievement[]>(`/users/${userId}/achievements`);
+    return apiCall<Achievement[]>(`/api/users/${userId}/achievements`);
   },
 };
 

@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [apiError, setApiError] = React.useState<string>("");
   const router = useRouter();
-  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3000";
 
   function validate(form: HTMLFormElement) {
     const formData = new FormData(form);
@@ -37,15 +37,26 @@ export default function LoginPage() {
         mobile: String(formData.get("mobile") || "").trim(),
         password: String(formData.get("password") || ""),
       };
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch('/api/auth/login', {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) { setApiError(data?.error || "Login failed"); return; }
-      if (data?.token) { try { localStorage.setItem("token", data.token); } catch {} }
-      if (data?.user) { try { localStorage.setItem("user", JSON.stringify(data.user)); } catch {} }
+      if (data?.token) { 
+        try { 
+          localStorage.setItem("token", data.token); 
+          console.log('Token saved:', data.token);
+        } catch {} 
+      }
+      if (data?.user) { 
+        try { 
+          localStorage.setItem("user", JSON.stringify(data.user)); 
+          localStorage.setItem("userData", JSON.stringify(data.user)); // For profile page
+          console.log('User saved:', data.user);
+        } catch {} 
+      }
       router.push("/");
     } finally {
       setIsSubmitting(false);

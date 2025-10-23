@@ -53,8 +53,7 @@ export default function UserMenu() {
     async function fetchProfile() {
       if (!token) return;
       try {
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:3001";
-        const res = await fetch(`${API_BASE}/users/me`, {
+        const res = await fetch('/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.status === 401) {

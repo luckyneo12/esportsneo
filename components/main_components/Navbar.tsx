@@ -47,8 +47,8 @@ export function NavbarMain() {
       link: "/leaderboard",
     },
     {
-      name: "Organizers",
-      link: "/organizers",
+      name: "Become Organizer",
+      link: "/organizer-info",
     },
   ];
 

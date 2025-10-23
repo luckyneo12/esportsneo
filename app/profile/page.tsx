@@ -22,25 +22,10 @@ export default function ProfileRedirectPage() {
           return;
         }
 
-        // Try to get userData from localStorage first
-        const userDataStr = localStorage.getItem('userData');
-        
-        if (userDataStr) {
-          // If userData exists in localStorage
-          const userData = JSON.parse(userDataStr);
-          const userId = userData.id || userData.userId;
-          
-          if (userId) {
-            console.log('Redirecting to profile from localStorage:', userId);
-            router.push(`/profile/${userId}`);
-            return;
-          }
-        }
-
-        // If no userData in localStorage, fetch from API
+        // Always fetch fresh user data from API to avoid stale data
         console.log('Fetching user data from API...');
         try {
-          const response = await fetch('http://localhost:3001/users/me', {
+          const response = await fetch('/api/auth/me', {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json',

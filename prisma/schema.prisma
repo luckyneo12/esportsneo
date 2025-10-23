@@ -1,0 +1,376 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PLAYER
+  ORGANISER
+  SUPER_ADMIN
+}
+
+enum OrganizerStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id            Int        @id @default(autoincrement())
+  name          String?
+  email         String?    @unique
+  mobile        String     @unique
+  username      String     @unique
+  password      String
+  bio           String?
+  avatarUrl     String?
+  gameId        String?
+  
+  instagramUrl  String?
+  youtubeUrl    String?
+  discordUrl    String?
+  customTagline String?
+  
+  role          UserRole   @default(PLAYER)
+  
+  matchesPlayed Int        @default(0)
+  matchesWon    Int        @default(0)
+  kills         Int        @default(0)
+  deaths        Int        @default(0)
+  wins          Int        @default(0)
+  mvpCount      Int        @default(0)
+  performancePoints Int    @default(0)
+  
+  level         Int        @default(1)
+  xp            Int        @default(0)
+  
+  notifyTournaments Boolean @default(true)
+  notifyTeams       Boolean @default(true)
+  notifyTowers      Boolean @default(true)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  organizedTournaments Tournament[] @relation("TournamentOrganizers")
+  ledTowers           Tower[]        @relation("TowerLeader")
+  towerMemberships    TowerMember[]
+  teamMemberships     TeamMember[]
+  captainedTeams      Team[]         @relation("TeamCaptain")
+  registrationsCreated TournamentRegistration[] @relation("RegistrationCreatedBy")
+  registrationsApproved TournamentRegistration[] @relation("RegistrationApprovedBy")
+  proofsUploaded      Proof[]
+  organizerApplication OrganizerApplication?
+  notifications       Notification[]
+  sentNotifications   Notification[] @relation("NotificationSender")
+  badges              UserBadge[]
+  achievements        UserAchievement[]
+}
+
+enum TournamentStatus {
+  UPCOMING
+  LIVE
+  COMPLETED
+}
+
+model Tournament {
+  id            Int        @id @default(autoincrement())
+  title         String
+  game          String
+  mapPool       String?
+  description   String?    @db.Text
+  rules         String?    @db.Text
+  bannerUrl     String?
+  logoUrl       String?
+  entryFee      Int        @default(0)
+  maxTeams      Int
+  matchDateTime DateTime
+  roomId        String?
+  roomPassword  String?
+  status        TournamentStatus @default(UPCOMING)
+  allowedTowerIds String?  @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  organizers    User[]      @relation("TournamentOrganizers")
+  registrations TournamentRegistration[]
+  matches       Match[]
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model TournamentRegistration {
+  id                 Int         @id @default(autoincrement())
+  tournamentId       Int
+  teamId             Int
+  status             RegistrationStatus @default(PENDING)
+  createdByUserId    Int
+  approvedByUserId   Int?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  tournament         Tournament  @relation(fields: [tournamentId], references: [id])
+  team               Team        @relation(fields: [teamId], references: [id])
+  createdBy          User        @relation("RegistrationCreatedBy", fields: [createdByUserId], references: [id])
+  approvedBy         User?       @relation("RegistrationApprovedBy", fields: [approvedByUserId], references: [id])
+
+  @@unique([tournamentId, teamId])
+}
+
+model Match {
+  id              Int        @id @default(autoincrement())
+  tournamentId    Int
+  teamAId         Int
+  teamBId         Int
+  winnerTeamId    Int?
+  roomId          String?
+  createdAt       DateTime   @default(now())
+
+  tournament      Tournament @relation(fields: [tournamentId], references: [id])
+  teamA           Team       @relation("MatchTeamA", fields: [teamAId], references: [id])
+  teamB           Team       @relation("MatchTeamB", fields: [teamBId], references: [id])
+  winnerTeam      Team?      @relation("MatchWinnerTeam", fields: [winnerTeamId], references: [id])
+  proofs          Proof[]
+}
+
+model Proof {
+  id          Int      @id @default(autoincrement())
+  matchId     Int
+  uploadedById Int
+  url         String
+  uploadedAt  DateTime @default(now())
+
+  match       Match    @relation(fields: [matchId], references: [id])
+  uploadedBy  User     @relation(fields: [uploadedById], references: [id])
+}
+
+model Tower {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  logoUrl     String?
+  bannerUrl   String?
+  description String?  @db.Text
+  code        String   @unique
+  leaderId    Int
+  coLeaderId  Int?
+  maxTeams    Int      @default(10)
+  maxMembers  Int      @default(50)
+  
+  level       Int      @default(1)
+  xp          Int      @default(0)
+  
+  tournamentsParticipated Int @default(0)
+  tournamentsWon          Int @default(0)
+  totalPoints             Int @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  leader      User     @relation("TowerLeader", fields: [leaderId], references: [id])
+  members     TowerMember[]
+  teams       Team[]
+  announcements TowerAnnouncement[]
+  badges      TowerBadge[]
+}
+
+enum TowerRole {
+  CO_LEADER
+  ELITE_MEMBER
+  MEMBER
+}
+
+model TowerMember {
+  id        Int       @id @default(autoincrement())
+  towerId   Int
+  userId    Int
+  role      TowerRole @default(MEMBER)
+  approved  Boolean   @default(false)
+  joinedAt  DateTime  @default(now())
+
+  tower     Tower     @relation(fields: [towerId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([towerId, userId])
+  @@unique([userId])
+}
+
+enum TowerBadgeType {
+  FIRST_TOURNAMENT
+  TOURNAMENT_WINNER
+  VETERAN_TOWER
+  ELITE_SQUAD
+  CHAMPION_TOWER
+}
+
+model TowerBadge {
+  id        Int             @id @default(autoincrement())
+  towerId   Int
+  type      TowerBadgeType
+  name      String
+  iconUrl   String?
+  earnedAt  DateTime        @default(now())
+
+  tower     Tower           @relation(fields: [towerId], references: [id])
+
+  @@unique([towerId, type])
+}
+
+model TowerAnnouncement {
+  id          Int      @id @default(autoincrement())
+  towerId     Int
+  title       String
+  message     String   @db.Text
+  createdBy   Int
+  createdAt   DateTime @default(now())
+
+  tower       Tower    @relation(fields: [towerId], references: [id])
+}
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  logoUrl   String
+  towerId   Int
+  captainId Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tower     Tower    @relation(fields: [towerId], references: [id])
+  captain   User?    @relation("TeamCaptain", fields: [captainId], references: [id])
+  members   TeamMember[]
+  registrations TournamentRegistration[]
+  matchesAsA Match[] @relation("MatchTeamA")
+  matchesAsB Match[] @relation("MatchTeamB")
+  matchesWon Match[] @relation("MatchWinnerTeam")
+
+  @@unique([towerId, name])
+}
+
+model TeamMember {
+  id        Int   @id @default(autoincrement())
+  teamId    Int
+  userId    Int
+
+  team      Team  @relation(fields: [teamId], references: [id])
+  user      User  @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
+model OrganizerApplication {
+  id          Int              @id @default(autoincrement())
+  userId      Int              @unique
+  reason      String?          @db.Text
+  status      OrganizerStatus  @default(PENDING)
+  reviewedBy  Int?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id])
+}
+
+enum NotificationType {
+  TOURNAMENT_CREATED
+  TEAM_REGISTERED
+  REGISTRATION_APPROVED
+  REGISTRATION_REJECTED
+  ROOM_DETAILS
+  TOWER_INVITE
+  ORGANIZER_APPROVED
+  ORGANIZER_REJECTED
+}
+
+model Notification {
+  id          Int              @id @default(autoincrement())
+  userId      Int
+  type        NotificationType
+  title       String
+  message     String           @db.Text
+  data        String?          @db.Text
+  read        Boolean          @default(false)
+  sentBy      Int?
+  createdAt   DateTime         @default(now())
+
+  user        User             @relation(fields: [userId], references: [id])
+  sender      User?            @relation("NotificationSender", fields: [sentBy], references: [id])
+}
+
+enum BadgeType {
+  FIRST_TOURNAMENT
+  FIRST_WIN
+  TOWER_OWNER
+  TEAM_CAPTAIN
+  MVP_MASTER
+  TOURNAMENT_WINNER
+  ORGANIZER
+  VETERAN
+  SHARPSHOOTER
+  TEAM_PLAYER
+}
+
+model Badge {
+  id          Int        @id @default(autoincrement())
+  type        BadgeType  @unique
+  name        String
+  description String
+  iconUrl     String?
+  createdAt   DateTime   @default(now())
+
+  userBadges  UserBadge[]
+}
+
+model UserBadge {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  badgeId     Int
+  earnedAt    DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+  badge       Badge    @relation(fields: [badgeId], references: [id])
+
+  @@unique([userId, badgeId])
+}
+
+enum AchievementType {
+  TOURNAMENT_PARTICIPATION
+  TOURNAMENT_WIN
+  TEAM_CREATED
+  TOWER_CREATED
+  MVP_EARNED
+  KILLS_MILESTONE
+  WINS_MILESTONE
+}
+
+model Achievement {
+  id          Int              @id @default(autoincrement())
+  type        AchievementType
+  name        String
+  description String
+  iconUrl     String?
+  xpReward    Int              @default(0)
+  createdAt   DateTime         @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  achievementId Int
+  progress      Int         @default(0)
+  completed     Boolean     @default(false)
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+
+  user          User        @relation(fields: [userId], references: [id])
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+}
